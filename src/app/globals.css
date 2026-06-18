@@ -24,3 +24,266 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Admin soft-UI shadows — elevation without borders */
+@layer utilities {
+  .shadow-admin-card {
+    box-shadow:
+      0 4px 24px 0 rgb(0 0 0 / 0.06),
+      0 1px 3px 0 rgb(0 0 0 / 0.04);
+  }
+
+  .shadow-admin-elevated {
+    box-shadow:
+      0 8px 32px 0 rgb(0 0 0 / 0.08),
+      0 2px 8px 0 rgb(0 0 0 / 0.04);
+  }
+
+  .shadow-admin-button {
+    box-shadow:
+      0 6px 20px 0 rgb(0 0 0 / 0.08),
+      0 2px 6px 0 rgb(0 0 0 / 0.05);
+  }
+
+  .shadow-admin-item {
+    box-shadow:
+      0 2px 12px 0 rgb(0 0 0 / 0.05),
+      0 1px 3px 0 rgb(0 0 0 / 0.03);
+  }
+
+  .shadow-admin-nav {
+    box-shadow: 0 -4px 24px 0 rgb(0 0 0 / 0.06);
+  }
+
+  .shadow-admin-sheet {
+    box-shadow: 0 -8px 40px 0 rgb(0 0 0 / 0.12);
+  }
+
+  @keyframes processing-float {
+    0%,
+    100% {
+      transform: translateY(0) translateX(0);
+    }
+    50% {
+      transform: translateY(-10px) translateX(6px);
+    }
+  }
+
+  @keyframes success-bounce {
+    0% {
+      transform: scale(0.6);
+      opacity: 0;
+    }
+    50% {
+      transform: scale(1.12);
+    }
+    70% {
+      transform: scale(0.94);
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .animate-processing-float {
+    animation: processing-float 2.2s ease-in-out infinite;
+  }
+
+  .animate-success-bounce {
+    animation: success-bounce 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes shake {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    20%,
+    60% {
+      transform: translateX(-6px);
+    }
+    40%,
+    80% {
+      transform: translateX(6px);
+    }
+  }
+
+  @keyframes check-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.45s ease-out both;
+  }
+
+  .animate-shake {
+    animation: shake 0.4s ease-in-out;
+  }
+
+  @keyframes slide-in-from-left {
+    from {
+      opacity: 0;
+      transform: translateX(-28px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .auth-input {
+    width: 100%;
+    background-color: #f3f4f6;
+    border-radius: 14px;
+    padding: 15px 16px;
+    font-size: 15px;
+    color: #111111;
+    outline: none;
+    border: 2px solid transparent;
+    transition:
+      background-color 0.2s,
+      border-color 0.2s,
+      box-shadow 0.2s;
+  }
+
+  .auth-input::placeholder {
+    color: #9ca3af;
+  }
+
+  .auth-input:focus {
+    background-color: #f3f4f6;
+    border-color: rgb(0 0 0 / 0.06);
+    box-shadow: 0 0 0 3px rgb(0 0 0 / 0.04);
+  }
+
+  .auth-btn-primary {
+    width: 100%;
+    padding: 16px;
+    border-radius: 14px;
+    background-color: #111111;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+
+  .auth-btn-primary:hover {
+    background-color: #000;
+  }
+
+  .auth-btn-primary:active {
+    transform: scale(0.98);
+  }
+
+  .otp-box {
+    width: 54px;
+    height: 54px;
+    border-radius: 16px;
+    background-color: #f3f4f6;
+    text-align: center;
+    font-size: 20px;
+    font-weight: 600;
+    color: #111111;
+    outline: none;
+    border: 2px solid transparent;
+    transition:
+      border-color 0.35s ease,
+      background-color 0.25s ease,
+      transform 0.2s ease;
+  }
+
+  .otp-box:focus {
+    border-color: rgb(0 0 0 / 0.08);
+    transform: scale(1.04);
+  }
+
+  .otp-box-filled {
+    background-color: #f3f4f6;
+  }
+
+  .otp-box-success {
+    border-color: #34c759;
+    background-color: #fff;
+  }
+
+  .verify-btn {
+    position: relative;
+    width: 100%;
+    height: 54px;
+    border-radius: 14px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    overflow: hidden;
+    transition:
+      background-color 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+      transform 0.15s ease;
+  }
+
+  .verify-btn:active {
+    transform: scale(0.98);
+  }
+
+  .verify-btn-idle {
+    background-color: #111111;
+  }
+
+  .verify-btn-idle:hover {
+    background-color: #000;
+  }
+
+  .verify-btn-success {
+    background-color: #34c759;
+    box-shadow: 0 8px 28px rgb(52 199 89 / 0.35);
+  }
+
+  .verify-btn-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 100%;
+  }
+
+  .verify-label-idle {
+    display: block;
+  }
+
+  .verify-tick {
+    display: flex;
+    align-items: center;
+    opacity: 0;
+    transform: translateX(-28px);
+    transition: none;
+  }
+
+  .verify-tick-visible {
+    animation: slide-in-from-left 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  }
+
+  .verify-label-success {
+    display: block;
+    opacity: 0;
+    transform: translateX(-28px);
+    transition: none;
+  }
+
+  .verify-label-success-visible {
+    animation: slide-in-from-left 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+    animation-delay: 0.12s;
+  }
+}
