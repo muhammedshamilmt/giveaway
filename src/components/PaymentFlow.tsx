@@ -83,21 +83,23 @@ export default function PaymentFlow() {
 
       <div className="flex-1 px-4 pb-6 pt-4 flex flex-col">
         <div className="bg-white rounded-[20px] p-4 flex-1 flex flex-col overflow-hidden relative min-h-[380px]">
-          {/* Form panel — slides out left */}
+          {/* Form panel — slides up and fades */}
           <div
-            className="absolute inset-0 p-0 transition-transform duration-400 ease-[cubic-bezier(0.32,0.72,0,1)]"
+            className="absolute inset-0 p-0 transition-all duration-400 ease-[cubic-bezier(0.32,0.72,0,1)]"
             style={{
-              transform: isForm ? "translateX(0)" : "translateX(-100%)",
+              opacity: isForm ? 1 : 0,
+              pointerEvents: isForm ? "auto" : "none",
+              transform: isForm ? "translateY(0)" : "translateY(-20px)",
             }}
           >
             <PaymentJourney onSubmit={handleFormSubmit} />
           </div>
 
-          {/* Send Money panel — slides in from right */}
+          {/* Send Money panel — slides in from bottom */}
           <div
             className="absolute inset-0 p-0 transition-transform duration-400 ease-[cubic-bezier(0.32,0.72,0,1)]"
             style={{
-              transform: isForm ? "translateX(100%)" : "translateX(0)",
+              transform: isForm ? "translateY(100%)" : "translateY(0)",
             }}
           >
             {userData && (

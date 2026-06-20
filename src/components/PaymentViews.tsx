@@ -156,7 +156,7 @@ export function PaymentStatusView({
   return (
     <>
       {isProcessing && (
-        <div className="flex flex-col items-center text-center">
+        <div className="flex flex-col items-center text-center animate-fade-in-up">
           <Image
             src="/assets/proccessing.svg"
             alt="Processing"
@@ -175,7 +175,7 @@ export function PaymentStatusView({
       )}
 
       {isSuccess && (
-        <div className="flex flex-col items-center text-center">
+        <div className="flex flex-col items-center text-center animate-fade-in-up">
           <Image
             src="/assets/success.svg"
             alt="Success"
@@ -197,7 +197,7 @@ export function PaymentStatusView({
       )}
 
       {isReceipt && receipt && (
-        <div className="w-full">
+        <div className="w-full animate-fade-in-up">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-[16px] font-bold text-gray-900">
               Transaction receipt

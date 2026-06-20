@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { X } from "lucide-react";
 
 interface BottomSheetProps {
@@ -18,27 +18,45 @@ export default function BottomSheet({
   subtitle,
   children,
 }: BottomSheetProps) {
+  const [visible, setVisible] = useState(false);
+  const [shouldRender, setShouldRender] = useState(open);
+
   useEffect(() => {
     if (open) {
+      setShouldRender(true);
       document.body.style.overflow = "hidden";
+      const t = setTimeout(() => setVisible(true), 10);
+      return () => clearTimeout(t);
     } else {
       document.body.style.overflow = "";
+      setVisible(false);
+      const t = setTimeout(() => setShouldRender(false), 400);
+      return () => clearTimeout(t);
     }
+  }, [open]);
+
+  useEffect(() => {
     return () => {
       document.body.style.overflow = "";
     };
-  }, [open]);
+  }, []);
 
-  if (!open) return null;
+  if (!shouldRender) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <div
-        className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+        className={`absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity duration-300 ${
+          visible ? "opacity-100" : "opacity-0"
+        }`}
         onClick={onClose}
         aria-hidden
       />
-      <div className="relative w-full max-w-lg bg-white rounded-t-[28px] shadow-admin-sheet max-h-[85vh] flex flex-col">
+      <div
+        className={`relative w-full max-w-lg bg-white rounded-t-[28px] shadow-admin-sheet max-h-[85vh] flex flex-col transition-transform duration-400 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+          visible ? "translate-y-0" : "translate-y-full"
+        }`}
+      >
         <div className="flex justify-center pt-3 pb-1 shrink-0">
           <div className="w-10 h-1 rounded-full bg-gray-300" />
         </div>
