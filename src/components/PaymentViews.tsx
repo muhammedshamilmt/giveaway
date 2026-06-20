@@ -121,7 +121,7 @@ export function StatusBottomSheet({ open, children }: StatusBottomSheetProps) {
       />
 
       <div
-        className={`fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-[28px] shadow-[0_-8px_40px_rgba(0,0,0,0.1)] transition-transform duration-400 ease-out min-h-[55vh] flex flex-col ${visible ? "translate-y-0" : "translate-y-full"
+        className={`fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-[28px] shadow-[0_-8px_40px_rgba(0,0,0,0.1)] transition-transform duration-400 ease-out min-h-[40vh] flex flex-col ${visible ? "translate-y-0" : "translate-y-full"
           }`}
         style={{ transitionDuration: "400ms" }}
       >
