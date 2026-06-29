@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback } from "react";
 import PaymentJourney, { UserFormData } from "./PaymentJourney";
 import {
   SendMoneyView,
@@ -36,47 +36,26 @@ export default function PaymentFlow() {
   const [userData, setUserData] = useState<UserFormData | null>(null);
   const [receipt, setReceipt] = useState<TransactionReceipt | null>(null);
 
-  const participantIdRef = useRef<string | null>(null);
-
-  // ── Step 1: save participant, advance to send-money ──────────────────────
+  // ── Step 1: just store user data locally, nothing saved to DB yet ───────
   const handleFormSubmit = useCallback(async (data: UserFormData) => {
     setUserData(data);
-
-    try {
-      const res = await fetch("/api/participants", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ full_name: data.fullName, phone: data.phone }),
-      });
-      if (res.ok) {
-        const participant = await res.json();
-        participantIdRef.current = participant.id;
-      } else {
-        const body = await res.json().catch(() => ({}));
-        console.error("[PaymentFlow] failed to save participant", res.status, body);
-      }
-    } catch (err) {
-      console.error("[PaymentFlow] participant save error:", err);
-    }
-
     setStep("send-money");
   }, []);
 
   // ── Step 2: swipe → create Razorpay order → open checkout modal ──────────
   const handleSwipeComplete = useCallback(async () => {
-    if (!userData || !participantIdRef.current) return;
+    if (!userData) return;
 
     setStep("processing");
 
     try {
-      // Create order server-side
+      // Create order server-side (no participant needed at this point)
       const orderRes = await fetch("/api/razorpay/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: AMOUNT_INR,
           currency: "INR",
-          participant_id: participantIdRef.current,
         }),
       });
 
@@ -94,7 +73,6 @@ export default function PaymentFlow() {
         key_id: string;
       };
 
-      // Wait for Razorpay script to be available
       if (typeof window.Razorpay === "undefined") {
         console.error("[PaymentFlow] Razorpay script not loaded");
         setStep("failed");
@@ -102,7 +80,6 @@ export default function PaymentFlow() {
       }
 
       const capturedUserData = userData;
-      const capturedParticipantId = participantIdRef.current;
 
       const rzp = new window.Razorpay({
         key: order.key_id,
@@ -118,7 +95,7 @@ export default function PaymentFlow() {
         theme: { color: "#111111" },
 
         handler: async (response) => {
-          // Verify signature server-side before marking success
+          // Payment confirmed — now verify signature AND save participant + payment together
           try {
             const verifyRes = await fetch("/api/razorpay/verify", {
               method: "POST",
@@ -127,7 +104,8 @@ export default function PaymentFlow() {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                participant_id: capturedParticipantId,
+                full_name: capturedUserData.fullName,
+                phone: capturedUserData.phone,
                 amount: AMOUNT_INR,
               }),
             });
@@ -147,7 +125,6 @@ export default function PaymentFlow() {
 
         modal: {
           ondismiss: () => {
-            // User closed the modal — go back to send-money
             setStep("send-money");
           },
         },
@@ -170,7 +147,6 @@ export default function PaymentFlow() {
     setStep("form");
     setUserData(null);
     setReceipt(null);
-    participantIdRef.current = null;
   }, []);
 
   const statusState: StatusViewState | null =

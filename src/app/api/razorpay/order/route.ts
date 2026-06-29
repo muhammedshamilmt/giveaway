@@ -8,15 +8,14 @@ const razorpay = new Razorpay({
 
 export async function POST(req: NextRequest) {
   try {
-    const { amount, currency = "INR", participant_id } = await req.json() as {
+    const { amount, currency = "INR" } = await req.json() as {
       amount: number;
       currency?: string;
-      participant_id: string;
     };
 
-    if (!amount || !participant_id) {
+    if (!amount) {
       return NextResponse.json(
-        { error: "amount and participant_id are required" },
+        { error: "amount is required" },
         { status: 400 }
       );
     }
@@ -25,8 +24,6 @@ export async function POST(req: NextRequest) {
     const order = await razorpay.orders.create({
       amount: Math.round(amount * 100),
       currency,
-      receipt: `rcpt_${participant_id.slice(0, 20)}`,
-      notes: { participant_id },
     });
 
     return NextResponse.json({
