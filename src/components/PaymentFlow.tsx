@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import PaymentJourney, { UserFormData } from "./PaymentJourney";
 import {
   SendMoneyView,
@@ -10,23 +10,24 @@ import {
   StatusViewState,
 } from "./PaymentViews";
 
-type FlowStep =
-  | "form"
-  | "send-money"
-  | "processing"
-  | "success"
-  | "receipt";
+// Fixed giveaway entry amount in INR
+const AMOUNT_INR = 1;
 
-function buildReceipt(user: UserFormData): TransactionReceipt {
+type FlowStep = "form" | "send-money" | "processing" | "success" | "failed" | "receipt";
+
+function buildReceipt(
+  user: UserFormData,
+  razorpayPaymentId: string
+): TransactionReceipt {
   return {
     recipientName: user.fullName,
-    paymentMethod: "Transfer",
+    paymentMethod: "Razorpay",
     transactionDate: new Date().toLocaleDateString("en-US", {
       month: "long",
       day: "numeric",
       year: "numeric",
     }),
-    sessionId: `${Date.now()}${Math.floor(Math.random() * 1000)}`,
+    sessionId: razorpayPaymentId,
   };
 }
 
@@ -35,41 +36,153 @@ export default function PaymentFlow() {
   const [userData, setUserData] = useState<UserFormData | null>(null);
   const [receipt, setReceipt] = useState<TransactionReceipt | null>(null);
 
-  const handleFormSubmit = useCallback((data: UserFormData) => {
+  const participantIdRef = useRef<string | null>(null);
+
+  // ── Step 1: save participant, advance to send-money ──────────────────────
+  const handleFormSubmit = useCallback(async (data: UserFormData) => {
     setUserData(data);
+
+    try {
+      const res = await fetch("/api/participants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ full_name: data.fullName, phone: data.phone }),
+      });
+      if (res.ok) {
+        const participant = await res.json();
+        participantIdRef.current = participant.id;
+      } else {
+        const body = await res.json().catch(() => ({}));
+        console.error("[PaymentFlow] failed to save participant", res.status, body);
+      }
+    } catch (err) {
+      console.error("[PaymentFlow] participant save error:", err);
+    }
+
     setStep("send-money");
   }, []);
 
-  const handleSwipeComplete = useCallback(() => {
-    if (!userData) return;
-    setReceipt(buildReceipt(userData));
+  // ── Step 2: swipe → create Razorpay order → open checkout modal ──────────
+  const handleSwipeComplete = useCallback(async () => {
+    if (!userData || !participantIdRef.current) return;
+
     setStep("processing");
+
+    try {
+      // Create order server-side
+      const orderRes = await fetch("/api/razorpay/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: AMOUNT_INR,
+          currency: "INR",
+          participant_id: participantIdRef.current,
+        }),
+      });
+
+      if (!orderRes.ok) {
+        const err = await orderRes.json().catch(() => ({}));
+        console.error("[PaymentFlow] order creation failed", err);
+        setStep("failed");
+        return;
+      }
+
+      const order = await orderRes.json() as {
+        order_id: string;
+        amount: number;
+        currency: string;
+        key_id: string;
+      };
+
+      // Wait for Razorpay script to be available
+      if (typeof window.Razorpay === "undefined") {
+        console.error("[PaymentFlow] Razorpay script not loaded");
+        setStep("failed");
+        return;
+      }
+
+      const capturedUserData = userData;
+      const capturedParticipantId = participantIdRef.current;
+
+      const rzp = new window.Razorpay({
+        key: order.key_id,
+        amount: order.amount,
+        currency: order.currency,
+        name: "Giveaway",
+        description: "Giveaway Entry",
+        order_id: order.order_id,
+        prefill: {
+          name: capturedUserData.fullName,
+          contact: capturedUserData.phone,
+        },
+        theme: { color: "#111111" },
+
+        handler: async (response) => {
+          // Verify signature server-side before marking success
+          try {
+            const verifyRes = await fetch("/api/razorpay/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                participant_id: capturedParticipantId,
+                amount: AMOUNT_INR,
+              }),
+            });
+
+            if (verifyRes.ok) {
+              setReceipt(buildReceipt(capturedUserData, response.razorpay_payment_id));
+              setStep("success");
+            } else {
+              console.error("[PaymentFlow] verification failed");
+              setStep("failed");
+            }
+          } catch (err) {
+            console.error("[PaymentFlow] verify error:", err);
+            setStep("failed");
+          }
+        },
+
+        modal: {
+          ondismiss: () => {
+            // User closed the modal — go back to send-money
+            setStep("send-money");
+          },
+        },
+      });
+
+      rzp.open();
+    } catch (err) {
+      console.error("[PaymentFlow] checkout error:", err);
+      setStep("failed");
+    }
   }, [userData]);
 
+  // ── Step 3: show receipt ─────────────────────────────────────────────────
   const handleNiceOne = useCallback(() => {
     setStep("receipt");
   }, []);
 
+  // ── Reset ────────────────────────────────────────────────────────────────
   const handleContinue = useCallback(() => {
     setStep("form");
     setUserData(null);
     setReceipt(null);
+    participantIdRef.current = null;
   }, []);
-
-  useEffect(() => {
-    if (step !== "processing") return;
-    const timer = setTimeout(() => setStep("success"), 2500);
-    return () => clearTimeout(timer);
-  }, [step]);
 
   const statusState: StatusViewState | null =
     step === "processing"
       ? "processing"
       : step === "success"
         ? "success"
-        : step === "receipt"
-          ? "receipt"
-          : null;
+        : step === "failed"
+          ? "failed"
+          : step === "receipt"
+            ? "receipt"
+            : null;
 
   const showBottomSheet = statusState !== null;
   const isForm = step === "form";
@@ -83,7 +196,7 @@ export default function PaymentFlow() {
 
       <div className="flex-1 px-4 pb-6 pt-4 flex flex-col">
         <div className="bg-white rounded-[20px] p-4 flex-1 flex flex-col overflow-hidden relative min-h-[380px]">
-          {/* Form panel — slides up and fades */}
+          {/* Form panel */}
           <div
             className="absolute inset-0 p-0 transition-all duration-400 ease-[cubic-bezier(0.32,0.72,0,1)]"
             style={{
@@ -95,7 +208,7 @@ export default function PaymentFlow() {
             <PaymentJourney onSubmit={handleFormSubmit} />
           </div>
 
-          {/* Send Money panel — slides in from bottom */}
+          {/* Send Money panel */}
           <div
             className="absolute inset-0 p-0 transition-transform duration-400 ease-[cubic-bezier(0.32,0.72,0,1)]"
             style={{
@@ -105,6 +218,7 @@ export default function PaymentFlow() {
             {userData && (
               <SendMoneyView
                 recipientName={userData.fullName}
+                amount={AMOUNT_INR}
                 onSwipeComplete={handleSwipeComplete}
                 swipeDisabled={step !== "send-money"}
               />

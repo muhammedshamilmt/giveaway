@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Wallet, Globe, X, Loader2 } from "lucide-react";
+import { Wallet, Globe, X, Loader2, AlertCircle } from "lucide-react";
 import Image from "next/image";
 import SwipeToPay from "./SwipeToPay";
 import DetailRow from "./admin/DetailRow";
@@ -13,7 +13,7 @@ export interface TransactionReceipt {
   sessionId: string;
 }
 
-export type StatusViewState = "processing" | "success" | "receipt";
+export type StatusViewState = "processing" | "success" | "failed" | "receipt";
 
 interface SendMoneyViewProps {
   recipientName: string;
@@ -88,7 +88,7 @@ export function SendMoneyView({
 
       <p className="text-center text-[10px] text-gray-400 pt-1">
         Payments Powered By{" "}
-        <span className="font-bold text-gray-900">stripe</span>
+        <span className="font-bold text-gray-900">Razorpay</span>
       </p>
     </div>
   );
@@ -151,6 +151,7 @@ export function PaymentStatusView({
 }: PaymentStatusViewProps) {
   const isProcessing = state === "processing";
   const isSuccess = state === "success";
+  const isFailed = state === "failed";
   const isReceipt = state === "receipt";
 
   return (
@@ -174,6 +175,24 @@ export function PaymentStatusView({
         </div>
       )}
 
+      {isFailed && (
+        <div className="flex flex-col items-center text-center animate-fade-in-up">
+          <div className="w-[88px] h-[88px] rounded-full bg-red-50 flex items-center justify-center">
+            <AlertCircle size={44} className="text-red-400" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-900 mt-4">Payment Failed</h3>
+          <p className="text-sm text-gray-500 mt-1 font-medium leading-snug">
+            Something went wrong. Please try again.
+          </p>
+          <button
+            onClick={onContinue}
+            className="mt-6 w-full py-3.5 rounded-full bg-gray-900 text-white text-[15px] font-semibold hover:bg-black active:scale-[0.98] transition-all"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
       {isSuccess && (
         <div className="flex flex-col items-center text-center animate-fade-in-up">
           <Image
@@ -185,7 +204,7 @@ export function PaymentStatusView({
           />
           <h3 className="text-lg font-bold text-gray-900 mt-4">Success!</h3>
           <p className="text-sm text-gray-500 mt-1 font-medium leading-snug">
-            Your transfer was successful
+            Your payment was successful
           </p>
           <button
             onClick={onNiceOne}

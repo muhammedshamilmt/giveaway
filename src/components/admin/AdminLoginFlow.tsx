@@ -2,20 +2,16 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Eye, EyeOff } from "lucide-react";
-import {
-  setAdminSession,
-  validateCredentials,
-  validateOtp,
-} from "@/lib/admin/auth";
+import { ArrowLeft, Check, Eye, EyeOff, Loader2 } from "lucide-react";
+import { setAdminSession, validateCredentials, validateOtp } from "@/lib/admin/auth";
 
 type Step = "login" | "otp";
-type VerifyPhase = "idle" | "green" | "tick" | "success" | "done";
+type VerifyPhase = "idle" | "loading" | "green" | "tick" | "success" | "done";
 
 const OTP_LENGTH = 5;
 
 function maskEmail(email: string) {
-  if (!email.includes("@")) return "+99 *** *** ***";
+  if (!email.includes("@")) return "***";
   const [user, domain] = email.split("@");
   const masked =
     user.length <= 2
@@ -33,6 +29,7 @@ export default function AdminLoginFlow() {
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [otpError, setOtpError] = useState("");
   const [verifyPhase, setVerifyPhase] = useState<VerifyPhase>("idle");
@@ -40,7 +37,6 @@ export default function AdminLoginFlow() {
 
   const otpValue = otp.join("");
   const isOtpComplete = otp.every((d) => d !== "");
-  const isOtpCorrect = isOtpComplete && validateOtp(otpValue);
   const isVerifying = verifyPhase !== "idle";
 
   const goToOtp = useCallback(() => {
@@ -59,12 +55,16 @@ export default function AdminLoginFlow() {
     setVerifyPhase("idle");
   }, [isVerifying]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError("");
+    setLoginLoading(true);
 
-    if (!validateCredentials(email, password)) {
-      setLoginError("Invalid email or password.");
+    const result = await validateCredentials(email, password);
+    setLoginLoading(false);
+
+    if (!result.ok) {
+      setLoginError(result.error ?? "Invalid email or password.");
       return;
     }
 
@@ -82,7 +82,6 @@ export default function AdminLoginFlow() {
       });
       setOtp(next);
       setOtpError("");
-      setVerifyPhase("idle");
       const focusIdx = Math.min(index + digits.length, OTP_LENGTH - 1);
       otpRefs.current[focusIdx]?.focus();
       return;
@@ -94,7 +93,6 @@ export default function AdminLoginFlow() {
     next[index] = value;
     setOtp(next);
     setOtpError("");
-    setVerifyPhase("idle");
 
     if (value && index < OTP_LENGTH - 1) {
       otpRefs.current[index + 1]?.focus();
@@ -111,7 +109,7 @@ export default function AdminLoginFlow() {
     }
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     if (isVerifying) return;
 
     if (!isOtpComplete) {
@@ -119,19 +117,21 @@ export default function AdminLoginFlow() {
       return;
     }
 
-    if (!validateOtp(otpValue)) {
-      setOtpError("Incorrect code. Please try again.");
+    setVerifyPhase("loading");
+    const result = await validateOtp(otpValue);
+
+    if (!result.ok) {
+      setVerifyPhase("idle");
+      setOtpError(result.error ?? "Incorrect code. Please try again.");
       return;
     }
 
-    setOtpError("");
     setVerifyPhase("green");
-
     setTimeout(() => setVerifyPhase("tick"), 280);
     setTimeout(() => setVerifyPhase("success"), 580);
     setTimeout(() => setVerifyPhase("done"), 1100);
     setTimeout(() => {
-      setAdminSession(remember);
+      setAdminSession(email, remember);
       router.replace("/admin");
     }, 1600);
   };
@@ -146,6 +146,7 @@ export default function AdminLoginFlow() {
   return (
     <div className="min-h-screen bg-white flex flex-col max-w-[390px] mx-auto">
       <div className="flex-1 px-7 pt-16 pb-10 flex flex-col relative overflow-hidden">
+
         {/* ── Login ── */}
         <div
           className={`absolute inset-0 px-7 pt-16 pb-10 flex flex-col transition-all ease-[cubic-bezier(0.32,0.72,0,1)] ${
@@ -175,13 +176,11 @@ export default function AdminLoginFlow() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setLoginError("");
-                  }}
+                  onChange={(e) => { setEmail(e.target.value); setLoginError(""); }}
                   placeholder="Enter your email"
                   className="auth-input"
                   autoComplete="email"
+                  disabled={loginLoading}
                 />
               </div>
 
@@ -193,13 +192,11 @@ export default function AdminLoginFlow() {
                   <input
                     type={showPassword ? "text" : "password"}
                     value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      setLoginError("");
-                    }}
+                    onChange={(e) => { setPassword(e.target.value); setLoginError(""); }}
                     placeholder="Enter your password"
                     className="auth-input pr-12"
                     autoComplete="current-password"
+                    disabled={loginLoading}
                   />
                   <button
                     type="button"
@@ -223,13 +220,9 @@ export default function AdminLoginFlow() {
                   }`}
                   aria-pressed={remember}
                 >
-                  {remember && (
-                    <Check size={12} className="text-white" strokeWidth={3} />
-                  )}
+                  {remember && <Check size={12} className="text-white" strokeWidth={3} />}
                 </button>
-                <span className="text-[13px] font-medium text-[#374151]">
-                  Remember me
-                </span>
+                <span className="text-[13px] font-medium text-[#374151]">Remember me</span>
               </label>
               <button
                 type="button"
@@ -246,8 +239,12 @@ export default function AdminLoginFlow() {
             )}
 
             <div className="mt-auto pt-10">
-              <button type="submit" className="auth-btn-primary">
-                Sign in
+              <button type="submit" className="auth-btn-primary" disabled={loginLoading}>
+                {loginLoading ? (
+                  <Loader2 size={18} className="animate-spin mx-auto" />
+                ) : (
+                  "Sign in"
+                )}
               </button>
             </div>
           </form>
@@ -280,9 +277,7 @@ export default function AdminLoginFlow() {
             </h1>
             <p className="text-[14px] text-[#9CA3AF] mt-2.5 leading-relaxed px-1">
               We&apos;ve sent a verification code to{" "}
-              <span className="text-[#6B7280] font-medium">
-                {maskEmail(email)}
-              </span>
+              <span className="text-[#6B7280] font-medium">{maskEmail(email)}</span>
             </p>
           </div>
 
@@ -290,9 +285,7 @@ export default function AdminLoginFlow() {
             {otp.map((digit, i) => (
               <input
                 key={i}
-                ref={(el) => {
-                  otpRefs.current[i] = el;
-                }}
+                ref={(el) => { otpRefs.current[i] = el; }}
                 type="text"
                 inputMode="numeric"
                 maxLength={OTP_LENGTH}
@@ -300,9 +293,7 @@ export default function AdminLoginFlow() {
                 disabled={isVerifying}
                 onChange={(e) => handleOtpChange(i, e.target.value)}
                 onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                className={`otp-box ${
-                  isOtpCorrect ? "otp-box-success" : digit ? "otp-box-filled" : ""
-                }`}
+                className={`otp-box ${digit ? "otp-box-filled" : ""}`}
                 aria-label={`Digit ${i + 1}`}
               />
             ))}
@@ -318,25 +309,24 @@ export default function AdminLoginFlow() {
             <button
               type="button"
               onClick={handleVerify}
-              disabled={isVerifying && verifyPhase === "done"}
+              disabled={verifyPhase === "done"}
               className={`verify-btn ${
-                verifyPhase === "idle"
+                verifyPhase === "idle" || verifyPhase === "loading"
                   ? "verify-btn-idle"
                   : "verify-btn-success"
               }`}
             >
               <span className="verify-btn-inner">
-                {verifyPhase === "idle" && (
-                  <span className="verify-label-idle">Verify</span>
+                {(verifyPhase === "idle" || verifyPhase === "loading") && (
+                  verifyPhase === "loading"
+                    ? <Loader2 size={18} className="animate-spin mx-auto text-white" />
+                    : <span className="verify-label-idle">Verify</span>
                 )}
-
-                {verifyPhase !== "idle" && (
+                {verifyPhase !== "idle" && verifyPhase !== "loading" && (
                   <>
                     <span
                       className={`verify-tick ${
-                        verifyPhase === "tick" ||
-                        verifyPhase === "success" ||
-                        verifyPhase === "done"
+                        verifyPhase === "tick" || verifyPhase === "success" || verifyPhase === "done"
                           ? "verify-tick-visible"
                           : ""
                       }`}

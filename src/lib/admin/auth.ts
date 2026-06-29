@@ -1,33 +1,50 @@
-export const DUMMY_ADMIN = {
-  email: "admin@giveaway.com",
-  password: "admin123",
-  otp: "12345",
-} as const;
-
 const SESSION_KEY = "giveaway_admin_session";
+const SESSION_EMAIL_KEY = "giveaway_admin_email";
 
-export function validateCredentials(email: string, password: string): boolean {
-  return (
-    email.trim().toLowerCase() === DUMMY_ADMIN.email &&
-    password === DUMMY_ADMIN.password
-  );
+/** Calls the server-side login route — credentials never leave the server. */
+export async function validateCredentials(
+  email: string,
+  password: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (res.ok) return { ok: true };
+    const body = await res.json().catch(() => ({}));
+    return { ok: false, error: body.error ?? "Invalid email or password" };
+  } catch {
+    return { ok: false, error: "Network error. Please try again." };
+  }
 }
 
-export function validateOtp(otp: string): boolean {
-  return otp === DUMMY_ADMIN.otp;
+/** Calls the server-side OTP route — OTP secret never leaves the server. */
+export async function validateOtp(
+  otp: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch("/api/admin/verify-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ otp }),
+    });
+    if (res.ok) return { ok: true };
+    const body = await res.json().catch(() => ({}));
+    return { ok: false, error: body.error ?? "Incorrect code. Please try again." };
+  } catch {
+    return { ok: false, error: "Network error. Please try again." };
+  }
 }
 
-export function setAdminSession(remember: boolean): void {
+export function setAdminSession(email: string, remember: boolean): void {
   if (typeof window === "undefined") return;
-  const payload = {
-    email: DUMMY_ADMIN.email,
-    remember,
-    loggedInAt: Date.now(),
-  };
+  const payload = JSON.stringify({ email, loggedInAt: Date.now() });
   if (remember) {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+    localStorage.setItem(SESSION_KEY, payload);
   } else {
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+    sessionStorage.setItem(SESSION_KEY, payload);
   }
 }
 
@@ -37,15 +54,18 @@ export function clearAdminSession(): void {
   sessionStorage.removeItem(SESSION_KEY);
 }
 
-export function isAdminAuthenticated(): boolean {
-  if (typeof window === "undefined") return false;
+export function getAdminSession(): { email: string; loggedInAt: number } | null {
+  if (typeof window === "undefined") return null;
   const raw =
     localStorage.getItem(SESSION_KEY) ?? sessionStorage.getItem(SESSION_KEY);
-  if (!raw) return false;
+  if (!raw) return null;
   try {
-    const data = JSON.parse(raw) as { email?: string };
-    return data.email === DUMMY_ADMIN.email;
+    return JSON.parse(raw) as { email: string; loggedInAt: number };
   } catch {
-    return false;
+    return null;
   }
+}
+
+export function isAdminAuthenticated(): boolean {
+  return getAdminSession() !== null;
 }
