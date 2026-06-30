@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
+import { rateLimit, LIMITS } from "@/lib/rateLimit";
+import { firstZodError } from "@/lib/validation";
+import { orderSchema } from "@/lib/validation";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
@@ -7,20 +10,27 @@ const razorpay = new Razorpay({
 });
 
 export async function POST(req: NextRequest) {
-  try {
-    const { amount, currency = "INR" } = await req.json() as {
-      amount: number;
-      currency?: string;
-    };
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+  const rl = rateLimit(`order:${ip}`, LIMITS.form.limit, LIMITS.form.windowMs);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
+    );
+  }
 
-    if (!amount) {
+  try {
+    const body = await req.json();
+    const parsed = orderSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "amount is required" },
+        { error: firstZodError(parsed.error) },
         { status: 400 }
       );
     }
 
-    // Razorpay amounts are in smallest currency unit (paise for INR)
+    const { amount, currency } = parsed.data;
+
     const order = await razorpay.orders.create({
       amount: Math.round(amount * 100),
       currency,
