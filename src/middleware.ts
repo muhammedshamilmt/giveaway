@@ -48,18 +48,17 @@ function getSecurityHeaders(): Record<string, string> {
     // Content Security Policy
     "Content-Security-Policy": [
       "default-src 'self'",
-      // Razorpay checkout script + frame
-      "script-src 'self' https://checkout.razorpay.com",
+      // Next.js requires 'unsafe-inline' for its bootstrap scripts in dev.
+      // Dev also requires 'unsafe-eval' for React's debugging features (never used in prod).
+      `script-src 'self' 'unsafe-inline'${!isProd ? " 'unsafe-eval'" : ""} https://checkout.razorpay.com`,
       "frame-src https://api.razorpay.com https://checkout.razorpay.com",
-      // Supabase API
-      `connect-src 'self' ${process.env.SUPABASE_URL ?? ""} https://api.razorpay.com`,
-      "img-src 'self' data: blob:",
-      "style-src 'self' 'unsafe-inline'", // Tailwind requires inline styles
+      `connect-src 'self' ${process.env.SUPABASE_URL ?? ""} https://api.razorpay.com https://lumberjack.razorpay.com`,
+      "img-src 'self' data: blob: https://*.razorpay.com",
+      "style-src 'self' 'unsafe-inline'",
       "font-src 'self'",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
-      "upgrade-insecure-requests",
     ]
       .filter(Boolean)
       .join("; "),

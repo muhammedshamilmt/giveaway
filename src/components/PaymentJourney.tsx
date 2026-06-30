@@ -168,15 +168,15 @@ export default function PaymentJourney({ onSubmit }: PaymentJourneyProps) {
   const [selectedCountry, setSelectedCountry] = useState<Country>(
     COUNTRIES[0] // default: India
   );
+  const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const form = e.currentTarget;
-    const fullName = (form.elements.namedItem("name") as HTMLInputElement).value;
-    // Combine dial code + number, e.g. "+91 98765 43210"
+    e.stopPropagation();
+    if (!fullName.trim() || !phoneNumber.trim()) return;
     const phone = `${selectedCountry.dial} ${phoneNumber.trim()}`;
-    onSubmit({ fullName, phone });
+    onSubmit({ fullName: fullName.trim(), phone });
   };
 
   return (
@@ -196,15 +196,16 @@ export default function PaymentJourney({ onSubmit }: PaymentJourneyProps) {
         {/* Full Name */}
         <div className="shrink-0">
           <label
-            htmlFor="name"
+            htmlFor="fullName"
             className="block text-xs font-bold text-gray-900 mb-1.5"
           >
             Full Name
           </label>
           <input
             type="text"
-            id="name"
-            name="name"
+            id="fullName"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
             placeholder="John Doe"
             className="block w-full rounded-xl bg-[#F5F5F5] px-3.5 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-gray-200 transition-all outline-none"
             required
@@ -214,7 +215,7 @@ export default function PaymentJourney({ onSubmit }: PaymentJourneyProps) {
         {/* Phone with country picker */}
         <div className="shrink-0">
           <label
-            htmlFor="phone"
+            htmlFor="phoneInput"
             className="block text-xs font-bold text-gray-900 mb-1.5"
           >
             Phone Number
@@ -226,8 +227,7 @@ export default function PaymentJourney({ onSubmit }: PaymentJourneyProps) {
             />
             <input
               type="tel"
-              id="phone"
-              name="phone"
+              id="phoneInput"
               value={phoneNumber}
               onChange={(e) =>
                 setPhoneNumber(e.target.value.replace(/[^\d\s\-().]/g, ""))
